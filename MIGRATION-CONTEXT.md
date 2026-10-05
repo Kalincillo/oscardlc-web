@@ -1,9 +1,68 @@
 # Migration Context — Flask Portfolio → ASP.NET Core
 
-> **How to use this file:** drop it at the root of the new C# repo. If you're working with the
-> Claude extension in VS Code, also create a `CLAUDE.md` whose first line is
-> `Read MIGRATION-CONTEXT.md before doing anything.` This file is the source of truth for
-> architecture, naming, URL preservation and deployment decisions.
+> **How to use this file:** lives at the repo root and is committed with the code. It is also
+> uploaded to the claude.ai Project "Portfolio Migration Python - C#" so every new chat starts with
+> it. Work is done **manually in Visual Studio, step by step, in teaching mode** (see `CLAUDE.md`) —
+> no coding agent. §0 is the live state; everything below it is the reference spec.
+
+---
+
+## 0. Session handoff — CURRENT STATE (read this first)
+
+> Updated at the end of every session. A new chat should resume from **Next step** below
+> without re-explaining anything listed under **Concepts already covered**.
+
+**Last updated:** 2026-10-05 · end of session 1
+
+### Next step
+**Phase 1 · Step 3** — add Razor Pages to `Program.cs` (`builder.Services.AddRazorPages()` before
+`Build()`, `app.MapRazorPages()` after), create `Pages/Index.cshtml`, remove the template's
+`app.MapGet("/", …)` line, and see the first `.cshtml` render.
+
+### Done
+- [x] Flask repo cloned to `C:\Projects\Portfolio-migration\flask-legacy`
+- [x] Solution created: Visual Studio, ASP.NET Core **Empty** template, .NET 10 LTS, HTTPS on,
+      no containers, top-level statements, no Aspire
+- [x] App runs: "Hello World!" served at `https://localhost:7036`
+- [x] Git identity configured, `git init -b main`, `.gitignore` via `dotnet new gitignore`
+- [x] First commit `2e488f2` — 9 files, no `bin/` / `obj/` / `.vs/`
+- [ ] GitHub repo created and pushed (in progress at end of session 1)
+
+### Environment facts
+| | |
+|---|---|
+| IDE | Visual Studio (July 2026 Feature Update) for C#; VS Code for reading the Flask reference |
+| Developer background | Python/Flask first; new to C# and to Visual Studio |
+| OS / shell | Windows, PowerShell (VS integrated terminal) |
+| Repo root | `C:\Projects\Portfolio-migration\OscarDlc\` |
+| Project | `OscarDlc.Web\OscarDlc.Web.csproj` |
+| Flask reference | `C:\Projects\Portfolio-migration\flask-legacy\` (separate git repo, read-only) |
+| Dev URLs | `https://localhost:7036`, `http://localhost:5022` (from `Properties\launchSettings.json`) |
+| GitHub user | `Kalincillo` · commits use the GitHub noreply email |
+| GitHub repo name | _(fill in once created)_ |
+
+### Concepts already covered — don't re-teach, just build on them
+- Solution (`.slnx`) vs project (`.csproj`); project name becomes the default namespace
+- Top-level statements = the compiler writes the hidden `Main(string[] args)`; `args` comes from there
+- `var` is static type inference, not a dynamic Python variable
+- **Two-phase model:** `builder.Services` registers what exists → `Build()` → `app` configures the request pipeline
+- `app.MapGet("/", () => "...")` ≈ `@app.route('/')`; `() =>` ≈ Python `lambda`
+- `ASPNETCORE_ENVIRONMENT` (in `launchSettings.json`) ≈ `FLASK_ENV`, chosen outside the code
+- Content root path ≈ `basedir` in the old `config.py`
+- Log format `level: category[eventId]`; category ≈ `logging.getLogger(__name__)`
+- Ctrl+F5 = run without debugger, F5 = with debugger
+- `.gitignore`: `bin/` ≈ `dist/`, `obj/` ≈ `__pycache__`, `.vs/` ≈ `.idea/`; `appsettings.Development.json` *is* committed, secrets go to `dotnet user-secrets`
+- Reading errors: git puts the cause on the last line and the fix above it
+
+### Loose ends carried over
+- **Unanswered comprehension question:** what happens if you call `builder.Services.Add...`
+  *after* `builder.Build()` — compile error or something else? Ask again when touching `Program.cs`.
+- The "break a semicolon" compiler-error exercise wasn't reported back. Worth doing in step 3.
+- **`static/` size not yet checked** against PythonAnywhere's ~312 MB. Needed before Phase 2.
+- Unconfirmed whether `templates/` and `static/` live under `app/main/` or `app/`.
+- Unconfirmed whether PythonAnywhere had uncommitted changes (`git status` in `~/my_blog`).
+- Phase 0 decisions still open: hosted app vs static export (§9); contact form in v1?
+- Templates (`base.html` first) not yet shared with Claude.
 
 ---
 
@@ -445,7 +504,9 @@ neither — the cert is free via Let's Encrypt at the host.
 - [ ] Is the contact form in scope for v1?
 
 **Phase 1 — Scaffold**
-- [ ] Visual Studio → ASP.NET Core **Empty** template, solution `OscarDlc`, project `OscarDlc.Web`, .NET 10 (build Razor Pages up by hand)
+- [x] Git repo initialised at `OscarDlc\`, .NET `.gitignore`, first commit `2e488f2`
+- [ ] Pushed to GitHub
+- [x] Visual Studio → ASP.NET Core **Empty** template, solution `OscarDlc`, project `OscarDlc.Web`, .NET 10 (build Razor Pages up by hand)
 - [ ] Add Razor Pages to `Program.cs` by hand (Empty template has none)
 - [ ] `Program.cs` per §5
 
