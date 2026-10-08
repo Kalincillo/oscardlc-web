@@ -12,21 +12,43 @@
 > Updated at the end of every session. A new chat should resume from **Next step** below
 > without re-explaining anything listed under **Concepts already covered**.
 
-**Last updated:** 2026-10-05 · end of session 1
+**Last updated:** 2026-10-08 · end of session 2
 
 ### Next step
-**Phase 1 · Step 3** — add Razor Pages to `Program.cs` (`builder.Services.AddRazorPages()` before
-`Build()`, `app.MapRazorPages()` after), create `Pages/Index.cshtml`, remove the template's
-`app.MapGet("/", …)` line, and see the first `.cshtml` render.
+**Phase 1 · Step 4** — production-safety lines in `Program.cs` (revised §5, "Step 4" block):
+environment-aware error handling (`UseExceptionHandler("/Error")` + `UseHsts()` outside
+Development) and `UseHttpsRedirection()`.
+- `UseExceptionHandler("/Error")` re-executes the request at `/Error`, so that page must exist.
+  Decide at the start of the step: a minimal placeholder `Pages/Error.cshtml` now (replaced by the
+  real one in Phase 4), or defer the exception handler to Phase 4.
+- Verify by switching the launch profile to `ASPNETCORE_ENVIRONMENT=Production` and throwing a
+  test exception — compare against the Development behaviour (developer exception page).
+- Explain what HSTS actually does and why it's skipped in Development.
 
 ### Done
 - [x] Flask repo cloned to `C:\Projects\Portfolio-migration\flask-legacy`
 - [x] Solution created: Visual Studio, ASP.NET Core **Empty** template, .NET 10 LTS, HTTPS on,
       no containers, top-level statements, no Aspire
-- [x] App runs: "Hello World!" served at `https://localhost:7036`
+- [x] App runs at `https://localhost:7036`
 - [x] Git identity configured, `git init -b main`, `.gitignore` via `dotnet new gitignore`
-- [x] First commit `2e488f2` — 9 files, no `bin/` / `obj/` / `.vs/`
-- [ ] GitHub repo created and pushed (in progress at end of session 1)
+- [x] First commit `2e488f2` — pushed to GitHub `Kalincillo/oscardlc-web`, `main` tracks `origin/main`
+- [x] Branch `phase1/razor-pages` created and pushed (tracks `origin/phase1/razor-pages`)
+- [x] **Phase 1 · Step 3:** `AddRazorPages()` + `MapRazorPages()` in `Program.cs`, template
+      `MapGet` removed, `Pages/Index.cshtml` (`@page "/"`, placeholder content) renders —
+      commit `a08472f`
+
+### Current `Program.cs`
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorPages();
+
+var app = builder.Build();
+
+app.MapRazorPages();
+
+app.Run();
+```
 
 ### Environment facts
 | | |
@@ -34,14 +56,22 @@
 | IDE | Visual Studio (July 2026 Feature Update) for C#; VS Code for reading the Flask reference |
 | Developer background | Python/Flask first; new to C# and to Visual Studio |
 | OS / shell | Windows, PowerShell (VS integrated terminal) |
+| Machine culture | es-MX (dates render as `06/10/2026 04:32:20 p. m.`) |
 | Repo root | `C:\Projects\Portfolio-migration\OscarDlc\` |
 | Project | `OscarDlc.Web\OscarDlc.Web.csproj` |
 | Flask reference | `C:\Projects\Portfolio-migration\flask-legacy\` (separate git repo, read-only) |
 | Dev URLs | `https://localhost:7036`, `http://localhost:5022` (from `Properties\launchSettings.json`) |
 | GitHub user | `Kalincillo` · commits use the GitHub noreply email |
-| GitHub repo name | _(fill in once created)_ |
+| GitHub repo | `https://github.com/Kalincillo/oscardlc-web` |
+| Active branch | `phase1/razor-pages` |
+
+### Branching convention
+- One branch per phase: `phaseN/<topic>`. Commit after every verified step.
+- `main` = known-good. When a phase is complete, merge its branch into `main` through a GitHub
+  pull request (good practice for reading your own diff), then start the next phase branch from `main`.
 
 ### Concepts already covered — don't re-teach, just build on them
+**Session 1**
 - Solution (`.slnx`) vs project (`.csproj`); project name becomes the default namespace
 - Top-level statements = the compiler writes the hidden `Main(string[] args)`; `args` comes from there
 - `var` is static type inference, not a dynamic Python variable
@@ -54,15 +84,34 @@
 - `.gitignore`: `bin/` ≈ `dist/`, `obj/` ≈ `__pycache__`, `.vs/` ≈ `.idea/`; `appsettings.Development.json` *is* committed, secrets go to `dotnet user-secrets`
 - Reading errors: git puts the cause on the last line and the fix above it
 
+**Session 2**
+- `git switch` / `git switch -c` (branches) and `git restore` (files) replace the overloaded
+  `git checkout` (Git 2.23). Used from now on.
+- `git remote -v`, upstream tracking, reading "Your branch is up to date with 'origin/main'"
+  (compares against the last fetch, not live GitHub); `git push -u` sets the upstream
+- `AddRazorPages()` ≈ initialising a Flask extension (gives abilities, routes nothing);
+  `MapRazorPages()` ≈ `register_blueprint` (discovered `@page` files become routes)
+- `Pages/` is a convention like Flask's `templates/`; `dotnet new page --name X --output Pages --no-pagemodel`
+- `@page "/route"` must be the first line; marks a routable page and sets its URL explicitly
+- `@expression` ≈ Jinja `{{ }}`; Razor is **compiled at build time** — a typo is a `CS` build
+  error, where Jinja renders an undefined name as empty at runtime
+- Compiler error anatomy: `File(line,col,endLine,endCol): error CSxxxx: message`; a zero-width
+  span marks a position; the reported spot is where the compiler *noticed*, sometimes a line late
+- **Limit of rule 6:** calling `builder.Services.Add…` after `Build()` compiles fine and throws
+  `InvalidOperationException` ("service collection … read-only") at runtime. The compiler checks
+  syntax and types, not runtime state/order. Done as a hands-on experiment.
+- Reading exceptions: type = category, message = specifics; VS call stack lists innermost frame
+  first (opposite of a Python traceback)
+- Build output `1 up-to-date` = nothing changed, compile skipped; **Rebuild** (Ctrl+Alt+F7) forces it
+- `DateTime.Now` uses the machine's culture and time zone — output differs on the production host
+
 ### Loose ends carried over
-- **Unanswered comprehension question:** what happens if you call `builder.Services.Add...`
-  *after* `builder.Build()` — compile error or something else? Ask again when touching `Program.cs`.
-- The "break a semicolon" compiler-error exercise wasn't reported back. Worth doing in step 3.
 - **`static/` size not yet checked** against PythonAnywhere's ~312 MB. Needed before Phase 2.
 - Unconfirmed whether `templates/` and `static/` live under `app/main/` or `app/`.
 - Unconfirmed whether PythonAnywhere had uncommitted changes (`git status` in `~/my_blog`).
 - Phase 0 decisions still open: hosted app vs static export (§9); contact form in v1?
 - Templates (`base.html` first) not yet shared with Claude.
+- `Pages/Index.cshtml` is a placeholder ("Hello from Razor Pages") — replaced in Phase 4.
 
 ---
 
@@ -70,10 +119,19 @@
 
 Port an existing Python/Flask personal portfolio (`www.oscardlc.com`, currently hosted on
 PythonAnywhere) to C# / ASP.NET Core, with **identical public URLs**, **identical visual
-output**, and **cheaper or equal hosting cost**.
+output**, and **cheaper or equal hosting cost** — **then improve it.**
 
-This is a *port*, not a redesign. Do not restyle, rename routes, or "improve" the UX unless
-explicitly asked. Any change to a public URL is a regression.
+The original site was written early in the developer's career, so improving it is an explicit
+goal. The strategy is **port → verify → improve**:
+
+- **Invisible engineering improvements** (config, security headers, asset compression, image
+  formats, shared layout, SEO metadata, accessibility, tests, CI) are made **during the port**,
+  in the phase where they naturally belong. See §15.
+- **Visible changes** (redesign, new URLs, new pages) wait until **after Phase 6**. Until then the
+  live PythonAnywhere site is the reference for a page-by-page visual diff; restyling during the
+  port would make that check meaningless (you couldn't tell a migration bug from an intended change).
+
+Any change to a public URL without a 301 redirect is a regression.
 
 ---
 
@@ -142,7 +200,8 @@ Error handlers: `404 → 404.html`, `500 → 500.html`.
 
 ⚠️ Several URLs use **snake_case with underscores** (`/music_and_death_power_bi`). Razor Pages
 derives routes from file names, and a file named `MusicAndDeathPowerBi.cshtml` would produce
-`/musicandmeathpowerbi` — wrong. **Every page must declare an explicit route template** (see §4.3).
+`/MusicAndDeathPowerBi` — no underscores, wrong URL. **Every page must declare an explicit route
+template** (see §4.3).
 
 ### 2.4 The contact form (currently disabled)
 
@@ -179,6 +238,7 @@ anything**. So the C# version must *implement* delivery, not port it. See §7.
 | Not Blazor WASM | — | Ships a multi-MB runtime and hurts SEO for a portfolio. |
 | Not a Web API + SPA | — | Nothing here is an API. |
 | Database | **None** | Do not add EF Core, do not add SQL Server. There is nothing to persist. |
+| Static files | **`MapStaticAssets()`** (.NET 9+) | Build-time compression (gzip/brotli), fingerprinted URLs, ETags and long cache headers out of the box. Replaces `UseStaticFiles()` + hand-written cache headers + `AddResponseCompression()` from the original plan. Verify build time with the full `wwwroot` in Phase 2. |
 | CSS/JS build | **None initially** | Reuse the existing hand-written CSS/JS as-is. No npm, no bundler, unless the current site already uses one. |
 | Auth | **None** | |
 
@@ -202,7 +262,7 @@ OscarDlc/                     (repo root)
     │   │   ├── _Layout.cshtml        ← from templates/base.html
     │   │   ├── _Nav.cshtml
     │   │   └── _Footer.cshtml
-    │   ├── Index.cshtml
+    │   ├── Index.cshtml              ← exists (placeholder)
     │   ├── About.cshtml
     │   ├── Music.cshtml
     │   ├── Projects.cshtml
@@ -236,10 +296,11 @@ OscarDlc/                     (repo root)
 | Flask / Jinja2 | ASP.NET Core / Razor |
 |---|---|
 | `create_app()` factory | `Program.cs` with `WebApplicationBuilder` |
-| Blueprint | Not needed — one small app. (Areas exist but are overkill.) |
+| Flask extension init (`CSRFProtect(app)`) | `builder.Services.AddXxx()` |
+| Blueprint registration | `app.MapRazorPages()` (no blueprints needed — one small app; Areas exist but are overkill) |
 | `@main.route('/x')` + `render_template` | `Pages/X.cshtml` with `@page "/x"` |
 | `templates/` | `Pages/` |
-| `static/` | `wwwroot/` (served by `app.UseStaticFiles()`) |
+| `static/` | `wwwroot/` (served by `app.MapStaticAssets()`) |
 | `config.py` + `.env` | `appsettings.json` + `dotnet user-secrets` (dev) + env vars (prod) |
 | `SECRET_KEY` | Not needed for CSRF — antiforgery is automatic. Only needed if you add Data Protection key persistence. |
 | WTForms + validators | POCO + `System.ComponentModel.DataAnnotations` attributes |
@@ -260,7 +321,7 @@ OscarDlc/                     (repo root)
 | `{% block scripts %}` | `@RenderSection("Scripts", required: false)` + `@section Scripts { … }` |
 | `{% include "nav.html" %}` | `<partial name="_Nav" />` |
 | `{{ url_for('main.about') }}` | `<a asp-page="/About">` (never hardcode `href="/about"`) |
-| `{{ url_for('static', filename='css/style.css') }}` | `<link rel="stylesheet" href="~/css/style.css" asp-append-version="true" />` |
+| `{{ url_for('static', filename='css/style.css') }}` | `<link rel="stylesheet" href="~/css/style.css" />` — confirm in Phase 2 how fingerprinting from `MapStaticAssets` applies (vs. the older `asp-append-version="true"`) |
 | `{{ value }}` (auto-escaped) | `@value` (auto-escaped) |
 | `{{ value \| safe }}` | `@Html.Raw(value)` — use only for the Power BI iframe if needed |
 | `{% for x in items %}` | `@foreach (var x in items)` |
@@ -271,6 +332,9 @@ OscarDlc/                     (repo root)
 be escaped as `@@`. This *will* bite when pasting existing templates. Inline `<style>` blocks are
 the usual culprit.
 
+**Compile-time gotcha (good kind):** Razor is compiled at build time, so a misspelled C# expression
+in a template is a build error with a file/line, not a silently empty string as in Jinja.
+
 ### 4.3 Route preservation — mandatory pattern
 
 Every page declares its URL explicitly, so the file name never dictates the route:
@@ -280,10 +344,11 @@ Every page declares its URL explicitly, so the file name never dictates the rout
 @{ ViewData["Title"] = "Music and Death — Power BI"; }
 ```
 
-Also set case-insensitive, lowercase URL generation in `Program.cs`:
+Also set lowercase URL generation in `Program.cs` (affects links generated by tag helpers; matching
+is already case-insensitive):
 
 ```csharp
-builder.Services.AddRouting(o => { o.LowercaseUrls = true; });
+builder.Services.AddRouting(o => o.LowercaseUrls = true);
 ```
 
 **Acceptance test:** after migration, every URL in the §2.3 table must return HTTP 200. Write a
@@ -292,32 +357,34 @@ the single most valuable test in this project.
 
 ---
 
-## 5. `Program.cs` — target shape
+## 5. `Program.cs` — target shape, built up phase by phase
+
+Lines are added only in the phase that needs them, so nothing is pasted before it can be
+understood and verified.
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorPages();
-builder.Services.AddRouting(o => o.LowercaseUrls = true);
-builder.Services.AddResponseCompression();
-// Contact form only:
-builder.Services.AddRateLimiter(/* fixed window, e.g. 5 requests / 10 min per IP */);
+builder.Services.AddRazorPages();                               // Phase 1 · Step 3 ✅
+builder.Services.AddRouting(o => o.LowercaseUrls = true);       // Phase 3 (when tag-helper links appear)
+builder.Services.AddRateLimiter(/* fixed window, e.g. 5 req / 10 min per IP */); // Phase 5
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())                           // Phase 1 · Step 4
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
 
-app.UseStatusCodePagesWithReExecute("/Error", "?code={0}");
-app.UseHttpsRedirection();
-app.UseStaticFiles();          // serves wwwroot
-app.UseResponseCompression();
-app.UseRouting();
-app.UseRateLimiter();
-app.MapRazorPages();
+app.UseStatusCodePagesWithReExecute("/Error", "?code={0}");     // Phase 4 (error pages)
+app.UseHttpsRedirection();                                      // Phase 1 · Step 4
+app.UseRouting();                                               // Phase 5 (explicit, so the rate limiter sits after it)
+app.UseRateLimiter();                                           // Phase 5
+
+app.MapStaticAssets();                                          // Phase 2
+app.MapRazorPages()                                             // Phase 1 · Step 3 ✅
+   .WithStaticAssets();                                         // Phase 2
 
 app.Run();
 ```
@@ -325,9 +392,13 @@ app.Run();
 Notes:
 - `UseHttpsRedirection()` behind a reverse proxy (IIS/nginx) needs `UseForwardedHeaders` or the
   host's integration, or you get redirect loops. On MonsterASP (IIS in-process) this is handled.
-- Add long-lived cache headers for `wwwroot` — 312 MB of images benefits a lot:
-  `app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable" });`
-  paired with `asp-append-version="true"` for cache busting.
+- `MapStaticAssets()` replaces the original plan's `UseStaticFiles()` + manual `Cache-Control`
+  headers + `AddResponseCompression()`. Images are already compressed formats, so the build-time
+  compression mainly benefits CSS/JS/HTML; the fingerprinting and caching benefit everything.
+  If build time becomes painful with ~312 MB of media, fall back to `UseStaticFiles()` for the
+  large media folder only — decide with real numbers in Phase 2.
+- In Development, the developer exception page is on by default — no need to add
+  `UseDeveloperExceptionPage()` by hand.
 
 ---
 
@@ -347,8 +418,8 @@ Rules:
   wiped on deploy, users get sporadic "antiforgery token invalid" errors after each deploy — if that
   happens, persist the key ring to a stable path via `PersistKeysToFileSystem`.
 
-`.gitignore` for the new repo: use the standard `dotnet new gitignore` output (covers `bin/`,
-`obj/`, `.vs/`, `*.user`), plus keep `.idea` from the old one if you still use Rider.
+`.gitignore` for the new repo: the standard `dotnet new gitignore` output (covers `bin/`,
+`obj/`, `.vs/`, `*.user`) is already in place.
 
 ---
 
@@ -395,15 +466,17 @@ a `?sent=1` state on `/contact`) on success.
 
 Single `Error.cshtml` page that reads `?code=` and renders the right message, or two pages
 (`/Error/404`, `/Error/500`) mirroring the current `404.html` / `500.html`. Either is fine — the
-existing templates decide. Do **not** leak stack traces in Production; only
-`app.UseDeveloperExceptionPage()` in Development.
+existing templates decide. Do **not** leak stack traces in Production; the developer exception page
+is Development-only by default.
+
+A 404 page is also an improvement opportunity: links back to the main sections instead of a dead end.
 
 ---
 
 ## 9. Hosting — options and real prices
 
 Constraint: the site must serve **`www.oscardlc.com` over HTTPS**. That single requirement
-eliminates most "free" tiers.
+eliminates most "free" tiers. *(Prices noted at planning time — re-check before buying.)*
 
 | Option | Price | Custom domain + HTTPS | Verdict |
 |---|---|---|---|
@@ -426,7 +499,7 @@ Your site has **zero server-side logic** apart from a contact form that doesn't 
 
 That's **$0/month forever** and faster than any shared host. The tradeoff is a slightly unusual
 build step, and you lose the "it's a real running C# app" story if that's part of the point of the
-exercise. Decide this **before** starting — it changes nothing about the Razor code but changes the
+exercise. Decide this **before Phase 7** — it changes nothing about the Razor code but changes the
 deployment pipeline entirely.
 
 **Default recommendation:** MonsterASP free tier for staging → Premium Single ($1.95–2.50/mo) for
@@ -499,52 +572,63 @@ neither — the cert is free via Let's Encrypt at the host.
 
 ## 11. Migration plan
 
-**Phase 0 — Decide** (before writing code)
-- [ ] Static-export + Cloudflare Pages, or hosted ASP.NET Core app? (§9)
+Each phase gets its own branch (`phaseN/<topic>`), merged to `main` by pull request when complete.
+Enhancements from §15 are pulled in at the phase listed next to them.
+
+**Phase 0 — Decide**
+- [ ] Static-export + Cloudflare Pages, or hosted ASP.NET Core app? (§9) — must be decided before Phase 7
 - [ ] Is the contact form in scope for v1?
 
-**Phase 1 — Scaffold**
-- [x] Git repo initialised at `OscarDlc\`, .NET `.gitignore`, first commit `2e488f2`
-- [ ] Pushed to GitHub
-- [x] Visual Studio → ASP.NET Core **Empty** template, solution `OscarDlc`, project `OscarDlc.Web`, .NET 10 (build Razor Pages up by hand)
-- [ ] Add Razor Pages to `Program.cs` by hand (Empty template has none)
-- [ ] `Program.cs` per §5
+**Phase 1 — Scaffold** · branch `phase1/razor-pages`
+- [x] Step 1 — Git repo initialised at `OscarDlc\`, .NET `.gitignore`, first commit `2e488f2`, pushed to GitHub
+- [x] Step 2 — Visual Studio → ASP.NET Core **Empty** template, solution `OscarDlc`, project `OscarDlc.Web`, .NET 10
+- [x] Step 3 — Razor Pages added by hand, `Pages/Index.cshtml` renders (`a08472f`)
+- [ ] Step 4 — Production-safety pipeline lines (§5): exception handler + HSTS outside Development, HTTPS redirection
+- [ ] Merge `phase1/razor-pages` → `main` via PR
 
 **Phase 2 — Assets**
+- [ ] Measure `app/main/static/` per subfolder (`du`/`tree`) before copying
 - [ ] Copy `app/main/static/**` → `wwwroot/**`, preserving subfolder names
-- [ ] Audit size: 312 MB is a lot. Compress/convert large images to WebP where possible — this is the one "improvement" worth making, because it directly reduces hosting storage and load time.
+- [ ] `MapStaticAssets()` + `.WithStaticAssets()` (§5); check build time with the full set
+- [ ] Image optimisation: convert large JPG/PNG to WebP where it helps, keep originals out of `wwwroot` (§15 E2)
 
 **Phase 3 — Layout**
 - [ ] Convert `base.html` → `_Layout.cshtml`; extract nav/footer into partials
 - [ ] Create `_ViewStart.cshtml` and `_ViewImports.cshtml` (`@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers`)
-- [ ] Replace every `url_for` and escape every stray `@`
+- [ ] `AddRouting(LowercaseUrls)`; replace every `url_for` with tag helpers; escape every stray `@`
+- [ ] Head metadata in the layout: `<html lang>`, per-page `<title>` + meta description, canonical, Open Graph (§15 E4)
 
 **Phase 4 — Pages** (one at a time, verify in browser after each)
-- [ ] 14 content pages with explicit `@page "/…"` routes
-- [ ] Error page(s)
+- [ ] 14 content pages with explicit `@page "/…"` routes (replace the placeholder Index)
+- [ ] Accessibility pass per page: `alt` text, `width`/`height` on images, `loading="lazy"` below the fold (§15 E5)
+- [ ] Error page(s) + `UseStatusCodePagesWithReExecute`
 
-**Phase 5 — Contact form** (§7)
+**Phase 5 — Contact form** (§7) — only if in scope
 
 **Phase 6 — Verify**
-- [ ] Smoke test: all 15 URLs return 200
+- [ ] Smoke test: all 15 URLs return 200 (xUnit + `WebApplicationFactory`)
 - [ ] Visual diff against the live PythonAnywhere site, page by page
-- [ ] Check the Power BI embed still loads (iframe CSP / `X-Frame-Options` can break embeds — if you add security headers, allow the Power BI origin)
-- [ ] Lighthouse pass
+- [ ] Security headers (§15 E6) — then check the Power BI embed still loads
+- [ ] `robots.txt` + `sitemap.xml` (§15 E7)
+- [ ] Lighthouse pass, record scores vs the live site
 
 **Phase 7 — Deploy**
+- [ ] GitHub Actions: build → test on every push / PR (§15 E8)
 - [ ] MonsterASP free tier, full re-verification
 - [ ] Upgrade to Premium, point DNS for `oscardlc.com` + `www`, issue Let's Encrypt cert
 - [ ] Keep PythonAnywhere running until DNS has fully propagated, then cancel
+
+**Phase 8 — Improve (visible changes)**
+- [ ] Pick items from §15 "Visible" list; each one is its own branch and decision
 
 ---
 
 ## 12. Still needed from the repo
 
-This context file was written from 9 files. To finish the spec, the following are required:
-
 1. **`app/main/templates/*.html`** — all 17 templates. Especially `base.html`: it defines the
-   layout, nav, and block structure everything else depends on.
+   layout, nav, and block structure everything else depends on. (Needed by Phase 3.)
 2. **`app/main/static/`** — a directory listing (`tree` or `ls -R`) plus total size per subfolder.
+   (Needed by Phase 2.)
 3. **`app/__init__.py` vs `app/main/__init__.py`** — two files named `__init__.py` were provided;
    confirm which is which and the exact package nesting.
 4. **The PythonAnywhere WSGI file** — reveals how the app is actually bootstrapped in prod.
@@ -555,21 +639,54 @@ This context file was written from 9 files. To finish the spec, the following ar
 ## 13. Open questions
 
 - Is the contact form meant to be revived, or intentionally retired?
-- Is `www.oscardlc.com` registered somewhere that lets you edit DNS records freely?
 - What is the current PythonAnywhere monthly bill (for a real cost comparison)?
 - Any analytics, sitemap, `robots.txt`, or Search Console verification files that must carry over?
-- Is preserving the exact current design a hard requirement, or is a refresh welcome later?
+- Which visible improvements (§15) are wanted after the port?
 
 ---
 
-## 14. Rules for the coding agent
+## 14. Rules
 
-1. **Never change a public URL.** §2.3 is a contract.
+1. **Never change a public URL without a 301 redirect.** §2.3 is a contract until Phase 8, and
+   even then only with redirects from the old URLs.
 2. **Do not add a database, ORM, or migration framework.** SQLAlchemy in `requirements.txt` was
    unused; do not "helpfully" reintroduce it as EF Core.
-3. **Do not restyle.** Reuse the existing CSS verbatim. Image optimisation is the only exception.
+3. **No visible restyling before Phase 6 is complete.** Reuse the existing CSS as-is during the
+   port. Invisible engineering improvements from §15 are welcome in their listed phase.
 4. Prefer `asp-page` tag helpers over hardcoded `href` values.
-5. One page at a time; verify in the browser before moving on.
+5. One step at a time; verify in the browser before moving on; commit after each verified step.
 6. No secrets in committed files, ever.
 7. If a Jinja template uses something with no clean Razor equivalent, stop and ask rather than
    inventing a workaround.
+8. Don't faithfully port things that were mistakes in the Flask version (config quirks, dead code,
+   unused packages) — call them out, explain the better C# way, then do that.
+
+---
+
+## 15. Enhancements backlog
+
+Improvements over the original Flask site. "Invisible" items are done during the port; "Visible"
+items wait for Phase 8. Each item is explained before it's done (teaching mode), like any step.
+
+### Invisible (during the port)
+
+| # | Enhancement | Phase | Why |
+|---|---|---|---|
+| E1 | `MapStaticAssets()` instead of `UseStaticFiles()` + manual cache/compression | 2 | Fingerprinted URLs, long caching and precompressed CSS/JS for free |
+| E2 | Image optimisation (WebP where it helps, sensible max dimensions) | 2 | Biggest win for load time and the 312 MB storage footprint |
+| E3 | One layout + partials; no HTML duplicated across pages | 3 | Fix nav/footer once instead of 15 times |
+| E4 | Proper `<head>`: `lang`, per-page title + meta description, canonical URL, Open Graph tags | 3 | SEO and nice link previews when the portfolio is shared |
+| E5 | Accessibility: `alt` text, landmarks (`<nav>`, `<main>`, `<footer>`), `width`/`height` on images, lazy-loading | 4 | Lighthouse accessibility score, no layout shift |
+| E6 | Security headers: `X-Content-Type-Options`, `Referrer-Policy`, a CSP that allows the Power BI origin | 6 | Basic hardening; must not break the embed |
+| E7 | `robots.txt` + `sitemap.xml` (15 URLs, static file is fine) | 6 | Search engines discover all pages |
+| E8 | GitHub Actions CI: build + smoke test on push/PR | 7 | `main` stays known-good automatically |
+| E9 | Explicit culture/time zone for any rendered date (e.g. footer year) | when it appears | Server culture/TZ differ from the dev machine (es-MX) |
+| E10 | Friendly 404 with links back to the main sections | 4 | No dead ends |
+
+### Visible (Phase 8 candidates — nothing decided)
+
+- Design refresh / responsive review on mobile
+- Kebab-case URLs (`/music-and-death-power-bi`) with permanent 301 redirects from the snake_case originals
+- Dark mode via `prefers-color-scheme`
+- Contact form (if not done in Phase 5)
+- New project pages
