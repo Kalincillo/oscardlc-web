@@ -4,6 +4,10 @@
 > uploaded to the claude.ai Project "Portfolio Migration Python - C#" so every new chat starts with
 > it. Work is done **manually in Visual Studio, step by step, in teaching mode** (see `CLAUDE.md`) —
 > no coding agent. §0 is the live state; everything below it is the reference spec.
+>
+> **Updating this file:** at the end of each session, Claude delivers the **complete updated file**
+> (not a list of edits). The developer replaces the whole file at the repo root, checks
+> `git diff`, commits, and re-uploads it to the Project.
 
 ---
 
@@ -12,18 +16,15 @@
 > Updated at the end of every session. A new chat should resume from **Next step** below
 > without re-explaining anything listed under **Concepts already covered**.
 
-**Last updated:** 2026-10-08 · end of session 2
+**Last updated:** 2026-10-30 · end of session 3
 
 ### Next step
-**Phase 1 · Step 4** — production-safety lines in `Program.cs` (revised §5, "Step 4" block):
-environment-aware error handling (`UseExceptionHandler("/Error")` + `UseHsts()` outside
-Development) and `UseHttpsRedirection()`.
-- `UseExceptionHandler("/Error")` re-executes the request at `/Error`, so that page must exist.
-  Decide at the start of the step: a minimal placeholder `Pages/Error.cshtml` now (replaced by the
-  real one in Phase 4), or defer the exception handler to Phase 4.
-- Verify by switching the launch profile to `ASPNETCORE_ENVIRONMENT=Production` and throwing a
-  test exception — compare against the Development behaviour (developer exception page).
-- Explain what HSTS actually does and why it's skipped in Development.
+**Phase 2 · Step 1** — measure `static/` in `flask-legacy` before copying anything.
+- First confirm where it lives: `app/main/static/` or `app/static/` (open loose end).
+- Size per subfolder, from `flask-legacy` in PowerShell — build the command together in the step.
+- Then create the phase branch from `main`: `git switch -c phase2/assets`.
+- Decide with real numbers whether `MapStaticAssets()` covers everything, or whether a large media
+  folder falls back to `UseStaticFiles()` (§5 notes).
 
 ### Done
 - [x] Flask repo cloned to `C:\Projects\Portfolio-migration\flask-legacy`
@@ -36,6 +37,14 @@ Development) and `UseHttpsRedirection()`.
 - [x] **Phase 1 · Step 3:** `AddRazorPages()` + `MapRazorPages()` in `Program.cs`, template
       `MapGet` removed, `Pages/Index.cshtml` (`@page "/"`, placeholder content) renders —
       commit `a08472f`
+- [x] **Phase 1 · Step 4a:** placeholder `Pages/Error.cshtml` (`@page "/Error"`), verified 200 when
+      visited directly — commit `aea3e01`
+- [x] **Phase 1 · Step 4b:** exception handler + HSTS outside Development, `UseHttpsRedirection()`.
+      Verified: dev exception page (Development); placeholder page with 500, URL unchanged
+      (Production); `http://localhost:5022` → 307 → HTTPS. No HSTS header on localhost (excluded
+      by default) — commit `9eba40b`
+- [x] **Phase 1 merged** to `main` via PR #1 (merge commit `5bd4593`); branch deleted locally and
+      on GitHub, tracking ref pruned
 
 ### Current `Program.cs`
 ```csharp
@@ -45,10 +54,19 @@ builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+
 app.MapRazorPages();
 
 app.Run();
 ```
+(The real file currently has two blank lines before `app.Run();` — see loose ends.)
 
 ### Environment facts
 | | |
@@ -63,12 +81,14 @@ app.Run();
 | Dev URLs | `https://localhost:7036`, `http://localhost:5022` (from `Properties\launchSettings.json`) |
 | GitHub user | `Kalincillo` · commits use the GitHub noreply email |
 | GitHub repo | `https://github.com/Kalincillo/oscardlc-web` |
-| Active branch | `phase1/razor-pages` |
+| Active branch | `main` (Phase 1 merged; `phase2/assets` not yet created) |
 
 ### Branching convention
 - One branch per phase: `phaseN/<topic>`. Commit after every verified step.
 - `main` = known-good. When a phase is complete, merge its branch into `main` through a GitHub
   pull request (good practice for reading your own diff), then start the next phase branch from `main`.
+- PRs are merged with **Create a merge commit** (keeps the step-by-step history).
+- Docs-only handoff commits (`MIGRATION-CONTEXT.md`) may go straight to `main`.
 
 ### Concepts already covered — don't re-teach, just build on them
 **Session 1**
@@ -105,13 +125,51 @@ app.Run();
 - Build output `1 up-to-date` = nothing changed, compile skipped; **Rebuild** (Ctrl+Alt+F7) forces it
 - `DateTime.Now` uses the machine's culture and time zone — output differs on the production host
 
+**Session 3**
+- `UseExceptionHandler("/Error")` **re-executes** the request internally (not a redirect): URL stays
+  the same, status is 500, `/Error` must exist. If `/Error` returns 404, .NET 8+ rethrows the
+  original exception → bare 500
+- Same page, two statuses: `/Error` visited directly = 200; re-executed by the handler = 500
+- `app.Environment.IsDevelopment()` reads `ASPNETCORE_ENVIRONMENT`; Development gets the developer
+  exception page automatically
+- **Middleware order is the pipeline:** each `Use…` wraps everything after it (≈ try/except around
+  the rest). Wrong order compiles fine and silently does nothing — another limit of rule 6
+- HSTS = browser remembers "HTTPS only" for `max-age`; skipped in Development and excludes
+  `localhost` by default. `UseHttpsRedirection` = 307 on every http request; both used in prod.
+  Redirection stays outside the `if` so Development runs under the same HTTPS rules as Production
+- 307 vs 302: 307 keeps the HTTP method (POST stays POST)
+- Route strings (`"/Error"`) aren't checked by the compiler; only the smoke test (Phase 6) guards them
+- Razor `.cshtml` compiles to a real class (`AspNetCoreGeneratedDocument.Pages_Index.ExecuteAsync()`)
+- Stack traces: first frame in *your* code matters; `--- End of stack trace from previous location ---`
+  marks an `await` boundary; outermost frame shows which middleware caught it
+- `WebApplication` auto-adds middleware not written in `Program.cs` (developer exception page,
+  authentication/authorization)
+- BrowserLink/BrowserRefresh warnings = VS hot-reload script injection; needs a `</body>`, absent
+  in published builds
+- **F5 vs Ctrl+F5:** debugger breaks on "User-Unhandled" exceptions (Just My Code) before middleware
+  handles them — a paused request looks like a frozen browser. Ctrl+F5 to see what visitors get
+- Header `Date` is always GMT/UTC, regardless of machine culture
+- `git add .` = current folder only; `git add -A` = whole repo. `git add` on an unchanged file is a
+  silent no-op — check `git status` / `LastWriteTime` before committing
+- Solution Explorer only shows solution/project files; repo-root files (`MIGRATION-CONTEXT.md`,
+  `CLAUDE.md`) are opened with File → Open → File (Ctrl+O)
+- PR review: read Files changed + hunk headers (`@@ -1,5 +1,18 @@` = old start,count / new start,count)
+- Merge methods: merge commit (kept), squash, rebase. Local `git pull` after merge = **fast-forward**
+  (pointer moves, only new objects downloaded)
+- `git branch -d` = safe delete (refuses if unmerged); `git fetch --prune` removes stale
+  `origin/…` tracking refs
+- Network errors: `Failed to connect to github.com port 443` = never reached GitHub (not auth);
+  check with `Test-NetConnection github.com -Port 443`
+
 ### Loose ends carried over
 - **`static/` size not yet checked** against PythonAnywhere's ~312 MB. Needed before Phase 2.
 - Unconfirmed whether `templates/` and `static/` live under `app/main/` or `app/`.
 - Unconfirmed whether PythonAnywhere had uncommitted changes (`git status` in `~/my_blog`).
 - Phase 0 decisions still open: hosted app vs static export (§9); contact form in v1?
 - Templates (`base.html` first) not yet shared with Claude.
-- `Pages/Index.cshtml` is a placeholder ("Hello from Razor Pages") — replaced in Phase 4.
+- `Pages/Index.cshtml` and `Pages/Error.cshtml` are placeholders, replaced in Phase 4 (Error gets a
+  PageModel, `?code=` handling, no-cache, links back — E10).
+- Cosmetic: double blank line before `app.Run();` in `Program.cs` — tidy on next edit (Phase 2).
 
 ---
 
@@ -277,7 +335,7 @@ OscarDlc/                     (repo root)
     │   ├── Rudi.cshtml
     │   ├── Burger.cshtml
     │   ├── Strength.cshtml
-    │   └── Error.cshtml (+ .cshtml.cs)
+    │   └── Error.cshtml (+ .cshtml.cs)   ← exists (placeholder, no PageModel yet)
     └── wwwroot/                       ← from app/main/static/
         ├── css/
         ├── js/
@@ -371,14 +429,14 @@ builder.Services.AddRateLimiter(/* fixed window, e.g. 5 req / 10 min per IP */);
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())                           // Phase 1 · Step 4
+if (!app.Environment.IsDevelopment())                           // Phase 1 · Step 4 ✅
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
 
 app.UseStatusCodePagesWithReExecute("/Error", "?code={0}");     // Phase 4 (error pages)
-app.UseHttpsRedirection();                                      // Phase 1 · Step 4
+app.UseHttpsRedirection();                                      // Phase 1 · Step 4 ✅
 app.UseRouting();                                               // Phase 5 (explicit, so the rate limiter sits after it)
 app.UseRateLimiter();                                           // Phase 5
 
@@ -468,6 +526,9 @@ Single `Error.cshtml` page that reads `?code=` and renders the right message, or
 (`/Error/404`, `/Error/500`) mirroring the current `404.html` / `500.html`. Either is fine — the
 existing templates decide. Do **not** leak stack traces in Production; the developer exception page
 is Development-only by default.
+
+A placeholder `Pages/Error.cshtml` (`@page "/Error"`, no PageModel) exists since Phase 1 so the
+exception handler has a target. Phase 4 grows it into the real page.
 
 A 404 page is also an improvement opportunity: links back to the main sections instead of a dead end.
 
@@ -563,7 +624,8 @@ replaced. Leave MX, TXT/SPF, and any Google/Search Console verification records 
    at the new host; requesting it early just fails and may hit rate limits.
 7. Keep PythonAnywhere running for **at least 48h** after the switch. Some resolvers ignore low TTLs.
    Cancel only once traffic has fully moved.
-8. Verify `http://` → `https://` redirect and that `oscardlc.com` (no www) resolves too.
+8. Verify `http://` → `https://` redirect and that `oscardlc.com` (no www) resolves too. Check the
+   `Strict-Transport-Security` header is present on the real domain (it's absent on localhost by design).
 
 **Watch out:** GoDaddy will try to upsell hosting and an SSL certificate during this. You need
 neither — the cert is free via Let's Encrypt at the host.
@@ -579,15 +641,15 @@ Enhancements from §15 are pulled in at the phase listed next to them.
 - [ ] Static-export + Cloudflare Pages, or hosted ASP.NET Core app? (§9) — must be decided before Phase 7
 - [ ] Is the contact form in scope for v1?
 
-**Phase 1 — Scaffold** · branch `phase1/razor-pages`
+**Phase 1 — Scaffold** · branch `phase1/razor-pages` ✅ (merged, PR #1)
 - [x] Step 1 — Git repo initialised at `OscarDlc\`, .NET `.gitignore`, first commit `2e488f2`, pushed to GitHub
 - [x] Step 2 — Visual Studio → ASP.NET Core **Empty** template, solution `OscarDlc`, project `OscarDlc.Web`, .NET 10
 - [x] Step 3 — Razor Pages added by hand, `Pages/Index.cshtml` renders (`a08472f`)
-- [ ] Step 4 — Production-safety pipeline lines (§5): exception handler + HSTS outside Development, HTTPS redirection
-- [ ] Merge `phase1/razor-pages` → `main` via PR
+- [x] Step 4 — Production-safety pipeline lines (§5): placeholder Error page (`aea3e01`), exception handler + HSTS outside Development, HTTPS redirection (`9eba40b`)
+- [x] Merge `phase1/razor-pages` → `main` via PR #1 (`5bd4593`)
 
-**Phase 2 — Assets**
-- [ ] Measure `app/main/static/` per subfolder (`du`/`tree`) before copying
+**Phase 2 — Assets** · branch `phase2/assets`
+- [ ] Measure `app/main/static/` per subfolder before copying
 - [ ] Copy `app/main/static/**` → `wwwroot/**`, preserving subfolder names
 - [ ] `MapStaticAssets()` + `.WithStaticAssets()` (§5); check build time with the full set
 - [ ] Image optimisation: convert large JPG/PNG to WebP where it helps, keep originals out of `wwwroot` (§15 E2)
@@ -601,7 +663,7 @@ Enhancements from §15 are pulled in at the phase listed next to them.
 **Phase 4 — Pages** (one at a time, verify in browser after each)
 - [ ] 14 content pages with explicit `@page "/…"` routes (replace the placeholder Index)
 - [ ] Accessibility pass per page: `alt` text, `width`/`height` on images, `loading="lazy"` below the fold (§15 E5)
-- [ ] Error page(s) + `UseStatusCodePagesWithReExecute`
+- [ ] Error page(s) + `UseStatusCodePagesWithReExecute` (grow the existing placeholder)
 
 **Phase 5 — Contact form** (§7) — only if in scope
 
